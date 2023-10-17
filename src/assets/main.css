@@ -3,7 +3,6 @@
 #app {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 2rem;
 
   font-weight: normal;
 }
@@ -13,35 +12,4 @@
     display: flex;
     place-items: center;
   }
-}
-
-.json-object, .json-array {
-  margin-left: 20px;
-  font-family: 'Courier New', monospace;
-}
-
-.json-key {
-    color: #1A33D1; /* Blue color for keys */
-    font-weight: bold;
-}
-
-.json-value {
-    color: #D1462F; /* Red color for values */
-}
-
-/* Specific styling for different types of values */
-.json-value[data-type="string"] {
-    color: #2A8D43; /* Green color for strings */
-}
-
-.json-value[data-type="number"] {
-    color: #D1462F; /* Red color for numbers */
-}
-
-.json-value[data-type="boolean"] {
-    color: #D18B47; /* Orange color for booleans */
-}
-
-.json-value[data-type="null"] {
-    color: #888888; /* Grey color for null */
 }
