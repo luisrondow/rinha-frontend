@@ -1,12 +1,17 @@
 <script setup>
-const { handle } = defineProps({
+const { handle, setIsLoading } = defineProps({
   handle: {
+    type: Function,
+    required: true
+  },
+  setIsLoading: {
     type: Function,
     required: true
   }
 })
 
 const handleFileChange = (e) => {
+  setIsLoading(true)
   const file = e.target.files[0]
   if (!file) return
 
@@ -31,6 +36,8 @@ const handleFileChange = (e) => {
     } catch (error) {
       console.error(error)
       alert('Error parsing JSON. Please ensure the file contains valid JSON.')
+    } finally {
+      setIsLoading(false)
     }
   })
 

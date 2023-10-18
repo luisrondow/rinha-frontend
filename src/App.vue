@@ -3,14 +3,18 @@ import { ref, computed, watch } from 'vue'
 import JsonInput from './components/JsonInput.vue'
 import { useVirtualList } from '@vueuse/core'
 
-const MAX_INDEX = 2_000_000
+const MAX_INDEX = 2_500_000
 
 const jsonLoaded = ref('')
+const startIndex = ref(0)
 const counter = ref(0)
 const hasMore = ref(true)
+
+const loading = ref(false)
 const error = ref(false)
 
 const listRef = ref(null)
+const listStartReached = ref(false)
 const endOfListReached = ref(false)
 
 const jsonSplitted = computed(() => {
@@ -18,54 +22,68 @@ const jsonSplitted = computed(() => {
 
   const jsonSplittedByLine = jsonLoaded.value.split('\n')
 
-  if (jsonSplittedByLine.length > MAX_INDEX) {
-    hasMore.value = true
+  const start = counter.value > 0 ? MAX_INDEX * counter.value - 1000 : 0
 
-    return jsonSplittedByLine.slice(MAX_INDEX * counter, MAX_INDEX * (counter.value + 1))
+  if (jsonSplittedByLine.length > MAX_INDEX * (counter.value + 1)) {
+    hasMore.value = true
+    startIndex.value = start
+
+    return jsonSplittedByLine.slice(start, MAX_INDEX * (counter.value + 1))
   } else {
-    return jsonSplittedByLine
+    hasMore.value = false
+    return jsonSplittedByLine.slice(start)
   }
 })
+
+const setIsLoading = (value) => {
+  loading.value = value
+}
 
 const handleJson = async (stringJson) => {
   try {
     jsonLoaded.value = JSON.stringify(JSON.parse(stringJson), null, 2)
   } catch (err) {
-    console.error(err);
+    console.error(err)
     error.value = true
   }
 }
 
-const { list, containerProps, wrapperProps } = useVirtualList(
-  jsonSplitted,
-  {
-    itemHeight: 12,
-  },
-)
-
-const height = computed(() => {
-  if (wrapperProps.value.style.height <= 8789480) {
-    return wrapperProps.value.style.height
-  } else {
-    return 8789480
-  }
+const { list, containerProps, wrapperProps, scrollTo } = useVirtualList(jsonSplitted, {
+  itemHeight: 12
 })
 
 const handleScroll = () => {
-  const targetRect = listRef.value.getBoundingClientRect();
+  const targetRect = listRef.value.getBoundingClientRect()
 
-  endOfListReached.value = targetRect.bottom <= (window.innerHeight || document.documentElement.clientHeight);
+  listStartReached.value = targetRect.top >= -4
+  endOfListReached.value =
+    targetRect.bottom <= (window.innerHeight || document.documentElement.clientHeight)
 }
 
 watch(containerProps.ref, (value) => {
   if (value) {
-    value.addEventListener('scroll', handleScroll);
+    value.addEventListener('scroll', handleScroll)
+  }
+})
+
+watch(listStartReached, async (value) => {
+  if (value && counter.value > 0) {
+    if (counter.value === 1) hasMore.value = false
+
+    counter.value = counter.value - 1
   }
 })
 
 watch(endOfListReached, async (value) => {
   if (value && hasMore.value) {
-    counter.value += 1;
+    counter.value = counter.value + 1
+  }
+})
+
+watch(jsonSplitted, () => {
+  if (counter.value > 0) {
+    console.log('scrolling to', MAX_INDEX * counter.value - 1000)
+    scrollTo(999)
   }
 })
 </script>
@@ -74,24 +92,27 @@ watch(endOfListReached, async (value) => {
   <main>
     <div class="wrapper">
       <template v-if="!!jsonSplitted?.length">
-        <div v-bind="containerProps" style="height: 100%; width: 100%; white-space: pre; padding-bottom: 2rem;">
-          <h1>JSON READED {{ jsonSplitted?.length }}</h1>
-          <ul
-            ref="listRef"
-            v-bind="{ style: { width: wrapperProps.style.width, marginTop: wrapperProps.style.marginTop, height: wrapperProps.style.height } }"
-            style="list-style-type: none"
-          >
-            <li v-for="item in list" :key="item.index" style="height: 12px; font-size: 12px;">
-              [{{ item.index }}] {{ item.data }}
+        <div
+          v-bind="containerProps"
+          style="height: 100%; width: 100%; white-space: pre; padding-bottom: 2rem"
+        >
+          <ul ref="listRef" v-bind="wrapperProps" style="list-style-type: none">
+            <li v-for="item in list" :key="item.index" style="height: 12px; font-size: 12px">
+              {{ startIndex + item.index }} | {{ item.data }}
             </li>
           </ul>
         </div>
       </template>
+      <template v-else-if="loading">
+        <h1>Loading...</h1>
+      </template>
       <template v-else>
         <h1>JSON Tree Viewer</h1>
         <p>Simple JSON Viewer that runs completely on-client. No data exchange</p>
-        <json-input :handle="handleJson" />
-        <p class="error" v-if="error">There was an error loading the JSON file. Please try again.</p>
+        <json-input :handle="handleJson" :set-is-loading="setIsLoading" />
+        <p class="error" v-if="error">
+          There was an error loading the JSON file. Please try again.
+        </p>
       </template>
     </div>
   </main>
@@ -128,7 +149,6 @@ main {
   font-size: 1.5rem;
   font-weight: 400;
 }
-
 
 .wrapper > p.error {
   color: red;
